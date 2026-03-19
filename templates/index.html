@@ -1,31 +1,143 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Dashboard</title>
+    <title>RFID Attendance Dashboard</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+
+        header {
+            background: #1e293b;
+            padding: 15px;
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            color: #38bdf8;
+        }
+
+        .container {
+            padding: 20px;
+        }
+
+        .cards {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            flex: 1;
+            min-width: 200px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+
+        .card h3 {
+            margin: 0;
+            font-size: 16px;
+            color: #94a3b8;
+        }
+
+        .card p {
+            font-size: 22px;
+            margin-top: 10px;
+            color: #38bdf8;
+        }
+
+        .actions {
+            margin-top: 20px;
+        }
+
+        .actions a {
+            text-decoration: none;
+            background: #38bdf8;
+            color: black;
+            padding: 8px 14px;
+            border-radius: 6px;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        .status {
+            margin-top: 15px;
+            color: #22c55e;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+            background: #1e293b;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th {
+            background: #38bdf8;
+            color: black;
+            padding: 10px;
+        }
+
+        td {
+            padding: 10px;
+            border-top: 1px solid #334155;
+            text-align: center;
+        }
+
+        tr:hover {
+            background: #334155;
+        }
+    </style>
 </head>
+
 <body>
 
-<h2>Attendance Dashboard</h2>
+<header>
+    📡 RFID Attendance System
+</header>
 
-<p>Total: <span id="total">0</span></p>
+<div class="container">
 
-<a href="/export">Download Excel</a> |
-<a href="/logout">Logout</a>
+    <!-- CARDS -->
+    <div class="cards">
+        <div class="card">
+            <h3>Total Attendance</h3>
+            <p id="total">0</p>
+        </div>
 
-<table border="1">
-<thead>
-<tr>
-<th>UID</th>
-<th>Name</th>
-<th>Time</th>
-<th>Date</th>
-</tr>
-</thead>
+        <div class="card">
+            <h3>Status</h3>
+            <p id="status">Connecting...</p>
+        </div>
+    </div>
 
-<tbody id="table">
-</tbody>
+    <!-- ACTION BUTTONS -->
+    <div class="actions">
+        <a href="/export">📥 Export Excel</a>
+        <a href="/logout">🚪 Logout</a>
+    </div>
 
-</table>
+    <!-- TABLE -->
+    <table>
+        <thead>
+            <tr>
+                <th>UID</th>
+                <th>Name</th>
+                <th>Time</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+    </table>
+
+</div>
 
 <script>
 async function loadData() {
@@ -33,10 +145,11 @@ async function loadData() {
         const res = await fetch('/data');
         const data = await res.json();
 
-        let table = document.getElementById("table");
-        table.innerHTML = "";
-
         document.getElementById("total").innerText = data.length;
+        document.getElementById("status").innerText = "Live ✅";
+
+        let table = document.getElementById("table-body");
+        table.innerHTML = "";
 
         data.forEach(item => {
             let row = `
@@ -51,11 +164,11 @@ async function loadData() {
         });
 
     } catch (err) {
-        console.log("Error loading data", err);
+        document.getElementById("status").innerText = "Server Offline ❌";
     }
 }
 
-// refresh every 2 sec
+// refresh every 2 seconds
 setInterval(loadData, 2000);
 loadData();
 </script>
