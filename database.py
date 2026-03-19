@@ -2,7 +2,6 @@ import sqlite3
 
 DB_NAME = "attendance.db"
 
-
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
@@ -42,5 +41,4 @@ def get_all_records():
     rows = c.fetchall()
 
     conn.close()
-
     return rows
