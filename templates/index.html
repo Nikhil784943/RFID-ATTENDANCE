@@ -7,29 +7,58 @@
 
 <h2>Attendance Dashboard</h2>
 
-<p>Total: {{ total }}</p>
+<p>Total: <span id="total">0</span></p>
 
 <a href="/export">Download Excel</a> |
 <a href="/logout">Logout</a>
 
 <table border="1">
+<thead>
 <tr>
 <th>UID</th>
 <th>Name</th>
 <th>Time</th>
 <th>Date</th>
 </tr>
+</thead>
 
-{% for row in data %}
-<tr>
-<td>{{ row.uid }}</td>
-<td>{{ row.name }}</td>
-<td>{{ row.time }}</td>
-<td>{{ row.date }}</td>
-</tr>
-{% endfor %}
+<tbody id="table">
+</tbody>
 
 </table>
+
+<script>
+async function loadData() {
+    try {
+        const res = await fetch('/data');
+        const data = await res.json();
+
+        let table = document.getElementById("table");
+        table.innerHTML = "";
+
+        document.getElementById("total").innerText = data.length;
+
+        data.forEach(item => {
+            let row = `
+                <tr>
+                    <td>${item.uid}</td>
+                    <td>${item.name}</td>
+                    <td>${item.time}</td>
+                    <td>${item.date}</td>
+                </tr>
+            `;
+            table.innerHTML += row;
+        });
+
+    } catch (err) {
+        console.log("Error loading data", err);
+    }
+}
+
+// refresh every 2 sec
+setInterval(loadData, 2000);
+loadData();
+</script>
 
 </body>
 </html>
