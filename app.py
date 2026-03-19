@@ -1,105 +1,71 @@
-from flask import Flask, request, jsonify, render_template, redirect, session, send_file
+from flask import Flask, request, jsonify, render_template, redirect, session
 from datetime import datetime
-import pandas as pd
 import os
-from werkzeug.middleware.proxy_fix import ProxyFix
+from database import init_db, insert_record, get_all
 
 app = Flask(__name__)
-app.secret_key = "super_secret_key_2026"
+app.secret_key = "supersecret"
 
-# Fix for Render proxy
-app.wsgi_app = ProxyFix(app.wsgi_app)
+# INIT DB
+init_db()
 
-# In-memory storage
-attendance = []
-
-# Student database
 students = {
     "91285723": "Abhishek",
     "1409145362": "Animesh",
     "77146475": "Nikhil"
 }
 
-# 🔐 LOGIN
+# LOGIN
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
 
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-
-        if username == "admin" and password == "1234":
+        if request.form['username'] == "admin" and request.form['password'] == "1234":
             session['logged_in'] = True
             return redirect('/')
         else:
-            error = "Invalid username or password"
+            error = "Invalid login"
 
     return render_template("login.html", error=error)
 
-# 🔓 LOGOUT
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/login')
 
-# 📡 RFID SCAN (FIXED: POST METHOD)
+# SCAN API
 @app.route('/scan', methods=['POST'])
 def scan():
-    try:
-        data = request.get_json()
+    data = request.json
+    uid = data.get('uid')
 
-        if not data:
-            return jsonify({"status": "error", "message": "No JSON received"})
+    name = students.get(uid, "Unknown")
 
-        uid = data.get('uid')
+    time_now = datetime.now().strftime("%H:%M:%S")
+    date_now = datetime.now().strftime("%Y-%m-%d")
 
-        if not uid:
-            return jsonify({"status": "error", "message": "No UID provided"})
+    insert_record(uid, name, time_now, date_now)
 
-        name = students.get(uid, "Unknown")
+    return jsonify({"status": "success"})
 
-        # Prevent duplicate
-        for record in attendance:
-            if record["uid"] == uid:
-                return jsonify({"status": "already marked"})
-
-        record = {
-            "uid": uid,
-            "name": name,
-            "time": datetime.now().strftime("%H:%M:%S"),
-            "date": datetime.now().strftime("%Y-%m-%d")
-        }
-
-        attendance.append(record)
-
-        return jsonify({"status": "success", "data": record})
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
-
-# 📊 DATA API (for dashboard)
+# DATA API
 @app.route('/data')
 def data():
-    return jsonify(attendance)
+    rows = get_all()
 
-# 📁 EXPORT EXCEL
-@app.route('/export')
-def export():
-    try:
-        if not attendance:
-            return "No data available"
+    result = []
+    for r in rows:
+        result.append({
+            "uid": r[0],
+            "name": r[1],
+            "time": r[2],
+            "date": r[3]
+        })
 
-        df = pd.DataFrame(attendance)
-        file_path = "attendance.xlsx"
-        df.to_excel(file_path, index=False, engine='openpyxl')
+    return jsonify(result)
 
-        return send_file(file_path, as_attachment=True)
-
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-# 🖥 DASHBOARD
+# DASHBOARD
 @app.route('/')
 def dashboard():
     if not session.get('logged_in'):
@@ -107,6 +73,6 @@ def dashboard():
 
     return render_template("index.html")
 
-# 🚀 RUN (for local only)
+# RUN
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+    app.run(host='0.0.0.0', port=5000)
