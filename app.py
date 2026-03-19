@@ -1,85 +1,60 @@
 from flask import Flask, request, jsonify, render_template, redirect, session, send_file
 from datetime import datetime
 import pandas as pd
-import os
 
 from database import init_db, insert_record, get_all_records
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_2026"
 
-# Initialize database
+# INIT DB
 init_db()
 
-# Student data
 students = {
     "91285723": "Abhishek",
     "1409145362": "Animesh",
     "77146475": "Nikhil"
 }
 
-
-# 🔐 LOGIN
+# LOGIN
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
 
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-
-        if username == "admin" and password == "1234":
+        if request.form.get('username') == "admin" and request.form.get('password') == "1234":
             session['logged_in'] = True
             return redirect('/')
         else:
-            error = "Invalid username or password"
+            error = "Invalid credentials"
 
     return render_template("login.html", error=error)
 
 
-# 🚪 LOGOUT
+# LOGOUT
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/login')
 
 
-# 📡 RFID SCAN API
+# SCAN API
 @app.route('/scan', methods=['POST'])
 def scan():
-    try:
-        data = request.get_json()
+    data = request.get_json()
 
-        if not data:
-            return jsonify({"status": "error", "message": "No JSON received"}), 400
+    uid = data.get('uid')
+    name = students.get(uid, "Unknown")
 
-        uid = data.get('uid')
+    time_now = datetime.now().strftime("%H:%M:%S")
+    date_now = datetime.now().strftime("%Y-%m-%d")
 
-        if not uid:
-            return jsonify({"status": "error", "message": "UID missing"}), 400
+    insert_record(uid, name, time_now, date_now)
 
-        name = students.get(uid, "Unknown")
-
-        time_now = datetime.now().strftime("%H:%M:%S")
-        date_now = datetime.now().strftime("%Y-%m-%d")
-
-        insert_record(uid, name, time_now, date_now)
-
-        return jsonify({
-            "status": "success",
-            "data": {
-                "uid": uid,
-                "name": name,
-                "time": time_now,
-                "date": date_now
-            }
-        })
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+    return jsonify({"status": "success"})
 
 
-# 📊 DATA API (for dashboard)
+# DATA API
 @app.route('/data')
 def data():
     rows = get_all_records()
@@ -96,23 +71,18 @@ def data():
     return jsonify(result)
 
 
-# 📁 EXPORT EXCEL
+# EXPORT
 @app.route('/export')
 def export():
     rows = get_all_records()
 
-    if not rows:
-        return "No data available"
-
     df = pd.DataFrame(rows, columns=["UID", "Name", "Time", "Date"])
+    df.to_excel("attendance.xlsx", index=False)
 
-    file_path = "attendance.xlsx"
-    df.to_excel(file_path, index=False, engine='openpyxl')
-
-    return send_file(file_path, as_attachment=True)
+    return send_file("attendance.xlsx", as_attachment=True)
 
 
-# 🖥 DASHBOARD
+# DASHBOARD
 @app.route('/')
 def dashboard():
     if not session.get('logged_in'):
@@ -121,6 +91,6 @@ def dashboard():
     return render_template("index.html")
 
 
-# 🚀 RUN
+# RUN
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
