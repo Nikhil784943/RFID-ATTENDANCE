@@ -1,72 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RFID Login</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #0f172a, #1e293b);
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+<title>Login</title>
 
-        .login-box {
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(10px);
-            padding: 40px;
-            border-radius: 20px;
-            width: 300px;
-            color: white;
-            box-shadow: 0 0 25px rgba(0,0,0,0.4);
-        }
+<style>
+body {
+background:linear-gradient(#0f172a,#1e293b);
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+color:white;
+font-family:Segoe UI;
+}
 
-        h2 {
-            text-align: center;
-            margin-bottom: 25px;
-        }
+.box {
+background:rgba(255,255,255,0.05);
+padding:30px;
+border-radius:15px;
+}
 
-        input {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 10px;
-            outline: none;
-            background: rgba(255,255,255,0.1);
-            color: white;
-        }
+input {
+display:block;
+margin:10px 0;
+padding:10px;
+width:200px;
+border:none;
+border-radius:8px;
+}
 
-        button {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 10px;
-            background: #38bdf8;
-            color: black;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 10px;
-            transition: 0.3s;
-        }
-
-        button:hover {
-            background: #0ea5e9;
-        }
-    </style>
+button {
+padding:10px;
+width:100%;
+background:#38bdf8;
+border:none;
+border-radius:8px;
+}
+</style>
 </head>
+
 <body>
 
-<div class="login-box">
-    <h2>RFID Login</h2>
-
-    <form action="/" method="GET">
-        <input type="text" placeholder="Username" required>
-        <input type="password" placeholder="Password" required>
-        <button type="submit">Login</button>
-    </form>
+<div class="box">
+<h2>Login</h2>
+<form action="/" method="GET">
+<input placeholder="Username" required>
+<input type="password" placeholder="Password" required>
+<button>Login</button>
+</form>
 </div>
 
 </body>
