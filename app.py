@@ -1,96 +1,110 @@
-from flask import Flask, request, jsonify, render_template, redirect, session, send_file
+from flask import Flask, render_template, request, jsonify, redirect, url_for
+import sqlite3
 from datetime import datetime
-import pandas as pd
-
-from database import init_db, insert_record, get_all_records
 
 app = Flask(__name__)
-app.secret_key = "super_secret_key_2026"
 
-# INIT DB
-init_db()
+# 🔥 CONFIG
+CLASS_DURATION = 60   # 60 min (change to 120 for lab)
 
+# STUDENTS DATABASE
 students = {
-    "91285723": "Abhishek",
-    "1409145362": "Animesh",
-    "77146475": "Nikhil"
+    91285723: "Abhishek",
+    1409145362: "Animesh",
+    77146475: "Nikhil"
 }
 
-# LOGIN
-@app.route('/login', methods=['GET', 'POST'])
+# INIT DB
+def init_db():
+    conn = sqlite3.connect("attendance.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS attendance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid TEXT,
+            name TEXT,
+            time TEXT,
+            date TEXT
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# 🔥 MAIN PAGE
+@app.route('/')
+def index():
+    return render_template("index.html")
+
+# 🔥 LOGIN PAGE
+@app.route('/login')
 def login():
-    error = None
+    return render_template("login.html")
 
-    if request.method == 'POST':
-        if request.form.get('username') == "admin" and request.form.get('password') == "1234":
-            session['logged_in'] = True
-            return redirect('/')
-        else:
-            error = "Invalid credentials"
+# 🔥 API: GET DATA
+@app.route('/data')
+def data():
+    conn = sqlite3.connect("attendance.db")
+    cursor = conn.cursor()
 
-    return render_template("login.html", error=error)
+    cursor.execute("SELECT uid, name, time, date FROM attendance ORDER BY id DESC")
+    rows = cursor.fetchall()
 
+    conn.close()
 
-# LOGOUT
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect('/login')
+    return jsonify(rows)
 
-
-# SCAN API
+# 🔥 API: SCAN (MAIN LOGIC)
 @app.route('/scan', methods=['POST'])
 def scan():
     data = request.get_json()
+    uid = data['uid']
 
-    uid = data.get('uid')
-    name = students.get(uid, "Unknown")
+    conn = sqlite3.connect("attendance.db")
+    cursor = conn.cursor()
 
-    time_now = datetime.now().strftime("%H:%M:%S")
-    date_now = datetime.now().strftime("%Y-%m-%d")
+    current_time = datetime.now()
 
-    insert_record(uid, name, time_now, date_now)
+    # 🔍 CHECK LAST ENTRY
+    cursor.execute("""
+        SELECT time, date FROM attendance
+        WHERE uid = ?
+        ORDER BY id DESC LIMIT 1
+    """, (uid,))
 
-    return jsonify({"status": "success"})
+    result = cursor.fetchone()
 
+    if result:
+        last_time, last_date = result
+        last_dt = datetime.strptime(f"{last_date} {last_time}", "%Y-%m-%d %H:%M:%S")
 
-# DATA API
-@app.route('/data')
-def data():
-    rows = get_all_records()
+        diff = (current_time - last_dt).total_seconds() / 60
 
-    result = []
-    for r in rows:
-        result.append({
-            "uid": r[0],
-            "name": r[1],
-            "time": r[2],
-            "date": r[3]
-        })
+        if diff < CLASS_DURATION:
+            conn.close()
+            return jsonify({"status": "duplicate"})
 
-    return jsonify(result)
+    # ✅ INSERT NEW ENTRY
+    name = students.get(int(uid), "Unknown")
 
+    cursor.execute("""
+        INSERT INTO attendance (uid, name, time, date)
+        VALUES (?, ?, ?, ?)
+    """, (
+        uid,
+        name,
+        current_time.strftime("%H:%M:%S"),
+        current_time.strftime("%Y-%m-%d")
+    ))
 
-# EXPORT
-@app.route('/export')
-def export():
-    rows = get_all_records()
+    conn.commit()
+    conn.close()
 
-    df = pd.DataFrame(rows, columns=["UID", "Name", "Time", "Date"])
-    df.to_excel("attendance.xlsx", index=False)
-
-    return send_file("attendance.xlsx", as_attachment=True)
-
-
-# DASHBOARD
-@app.route('/')
-def dashboard():
-    if not session.get('logged_in'):
-        return redirect('/login')
-
-    return render_template("index.html")
+    return jsonify({"status": "success", "name": name})
 
 
-# RUN
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
