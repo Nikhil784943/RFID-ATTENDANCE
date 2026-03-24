@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, jsonify, redirect, Response
+from flask import Flask, render_template, request, jsonify, redirect, session, Response
 import sqlite3
 from datetime import datetime
 import pytz
 
 app = Flask(__name__)
+app.secret_key = "rfid_secret_key"
 
 # ==============================
 # 🔧 CONFIG
@@ -18,12 +19,10 @@ students = {
 }
 
 DB_NAME = "attendance.db"
-
-# 🌍 TIMEZONE (IST)
 IST = pytz.timezone('Asia/Kolkata')
 
 # ==============================
-# 🗄️ DB FUNCTIONS
+# 🗄️ DB
 # ==============================
 
 def get_db():
@@ -49,23 +48,51 @@ def init_db():
 init_db()
 
 # ==============================
-# 🌐 ROUTES
+# 🔐 LOGIN
+# ==============================
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        if username == "admin" and password == "1234":
+            session['user'] = username
+            return redirect('/')
+        else:
+            return "Invalid Login"
+
+    return render_template("login.html")
+
+# ==============================
+# 🔓 LOGOUT
+# ==============================
+
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect('/login')
+
+# ==============================
+# 🏠 HOME (PROTECTED)
 # ==============================
 
 @app.route('/')
 def home():
+    if 'user' not in session:
+        return redirect('/login')
     return render_template("index.html")
 
-@app.route('/login')
-def login():
-    return render_template("login.html")
-
 # ==============================
-# 📊 GET TODAY DATA (IST)
+# 📊 GET TODAY DATA
 # ==============================
 
 @app.route('/data')
 def get_data():
+    if 'user' not in session:
+        return redirect('/login')
+
     today = datetime.now(IST).strftime("%Y-%m-%d")
 
     conn = get_db()
@@ -84,7 +111,7 @@ def get_data():
     return jsonify(rows)
 
 # ==============================
-# 📡 SCAN API (WITH IST)
+# 📡 SCAN API
 # ==============================
 
 @app.route('/scan', methods=['POST'])
@@ -95,14 +122,12 @@ def scan():
         return jsonify({"status": "error"})
 
     uid = data["uid"]
-
-    # ✅ IST TIME
     now = datetime.now(IST)
 
     conn = get_db()
     cursor = conn.cursor()
 
-    # 🔍 CHECK LAST ENTRY
+    # 🔍 CHECK DUPLICATE
     cursor.execute("""
         SELECT time, date FROM attendance
         WHERE uid = ?
@@ -118,8 +143,6 @@ def scan():
             f"{last_date} {last_time}",
             "%Y-%m-%d %H:%M:%S"
         )
-
-        # Convert last_dt to IST as well
         last_dt = IST.localize(last_dt)
 
         diff = (now - last_dt).total_seconds() / 60
@@ -128,7 +151,7 @@ def scan():
             conn.close()
             return jsonify({"status": "duplicate"})
 
-    # ✅ INSERT NEW ENTRY
+    # ✅ INSERT
     name = students.get(int(uid), "Unknown")
 
     cursor.execute("""
@@ -147,11 +170,14 @@ def scan():
     return jsonify({"status": "success", "name": name})
 
 # ==============================
-# 🧹 CLEAR DATA
+# 🧹 CLEAR DATA (MARK AGAIN)
 # ==============================
 
 @app.route('/clear')
 def clear():
+    if 'user' not in session:
+        return redirect('/login')
+
     conn = get_db()
     cursor = conn.cursor()
 
@@ -163,11 +189,14 @@ def clear():
     return redirect('/')
 
 # ==============================
-# 📥 EXPORT CSV
+# 📥 EXPORT
 # ==============================
 
 @app.route('/export')
 def export():
+    if 'user' not in session:
+        return redirect('/login')
+
     conn = get_db()
     cursor = conn.cursor()
 
