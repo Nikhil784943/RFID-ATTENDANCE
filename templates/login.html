@@ -5,36 +5,45 @@
 
 <style>
 body {
-background:linear-gradient(#0f172a,#1e293b);
-display:flex;
-justify-content:center;
-align-items:center;
-height:100vh;
-color:white;
-font-family:Segoe UI;
+    background: linear-gradient(#0f172a, #1e293b);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: white;
+    font-family: Segoe UI;
 }
 
 .box {
-background:rgba(255,255,255,0.05);
-padding:30px;
-border-radius:15px;
+    background: rgba(255,255,255,0.05);
+    padding: 30px;
+    border-radius: 15px;
+    width: 260px;
+    text-align: center;
 }
 
 input {
-display:block;
-margin:10px 0;
-padding:10px;
-width:200px;
-border:none;
-border-radius:8px;
+    display: block;
+    margin: 12px auto;
+    padding: 10px;
+    width: 90%;
+    border: none;
+    border-radius: 8px;
+    outline: none;
 }
 
 button {
-padding:10px;
-width:100%;
-background:#38bdf8;
-border:none;
-border-radius:8px;
+    padding: 10px;
+    width: 100%;
+    background: #38bdf8;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #0ea5e9;
 }
 </style>
 </head>
@@ -42,12 +51,15 @@ border-radius:8px;
 <body>
 
 <div class="box">
-<h2>Login</h2>
-<form action="/" method="GET">
-<input placeholder="Username" required>
-<input type="password" placeholder="Password" required>
-<button>Login</button>
-</form>
+    <h2>RFID Login</h2>
+
+    <!-- ✅ FIXED FORM -->
+    <form action="/login" method="POST">
+        <input name="username" placeholder="Username" required>
+        <input name="password" type="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+    </form>
+
 </div>
 
 </body>
