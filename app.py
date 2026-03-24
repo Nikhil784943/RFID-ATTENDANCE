@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify, redirect, Response
 import sqlite3
 from datetime import datetime
+import pytz
 
 app = Flask(__name__)
 
@@ -17,6 +18,9 @@ students = {
 }
 
 DB_NAME = "attendance.db"
+
+# 🌍 TIMEZONE (IST)
+IST = pytz.timezone('Asia/Kolkata')
 
 # ==============================
 # 🗄️ DB FUNCTIONS
@@ -57,12 +61,12 @@ def login():
     return render_template("login.html")
 
 # ==============================
-# 📊 GET TODAY DATA
+# 📊 GET TODAY DATA (IST)
 # ==============================
 
 @app.route('/data')
 def get_data():
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(IST).strftime("%Y-%m-%d")
 
     conn = get_db()
     cursor = conn.cursor()
@@ -80,7 +84,7 @@ def get_data():
     return jsonify(rows)
 
 # ==============================
-# 📡 SCAN API
+# 📡 SCAN API (WITH IST)
 # ==============================
 
 @app.route('/scan', methods=['POST'])
@@ -91,11 +95,14 @@ def scan():
         return jsonify({"status": "error"})
 
     uid = data["uid"]
-    now = datetime.now()
+
+    # ✅ IST TIME
+    now = datetime.now(IST)
 
     conn = get_db()
     cursor = conn.cursor()
 
+    # 🔍 CHECK LAST ENTRY
     cursor.execute("""
         SELECT time, date FROM attendance
         WHERE uid = ?
@@ -106,7 +113,14 @@ def scan():
 
     if result:
         last_time, last_date = result
-        last_dt = datetime.strptime(f"{last_date} {last_time}", "%Y-%m-%d %H:%M:%S")
+
+        last_dt = datetime.strptime(
+            f"{last_date} {last_time}",
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+        # Convert last_dt to IST as well
+        last_dt = IST.localize(last_dt)
 
         diff = (now - last_dt).total_seconds() / 60
 
@@ -114,6 +128,7 @@ def scan():
             conn.close()
             return jsonify({"status": "duplicate"})
 
+    # ✅ INSERT NEW ENTRY
     name = students.get(int(uid), "Unknown")
 
     cursor.execute("""
