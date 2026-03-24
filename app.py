@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, Response
+from flask import Flask, render_template, request, jsonify, redirect, Response
 import sqlite3
 from datetime import datetime
 
@@ -8,7 +8,7 @@ app = Flask(__name__)
 # 🔧 CONFIG
 # ==============================
 
-CLASS_DURATION = 60   # minutes (use 120 for lab)
+CLASS_DURATION = 60  # minutes
 
 students = {
     91285723: "Abhishek",
@@ -19,7 +19,7 @@ students = {
 DB_NAME = "attendance.db"
 
 # ==============================
-# 🗄️ DATABASE INIT
+# 🗄️ DB FUNCTIONS
 # ==============================
 
 def get_db():
@@ -57,19 +57,22 @@ def login():
     return render_template("login.html")
 
 # ==============================
-# 📊 GET ATTENDANCE DATA
+# 📊 GET TODAY DATA
 # ==============================
 
 @app.route('/data')
 def get_data():
+    today = datetime.now().strftime("%Y-%m-%d")
+
     conn = get_db()
     cursor = conn.cursor()
 
     cursor.execute("""
         SELECT uid, name, time, date
         FROM attendance
+        WHERE date = ?
         ORDER BY id DESC
-    """)
+    """, (today,))
 
     rows = cursor.fetchall()
     conn.close()
@@ -77,7 +80,7 @@ def get_data():
     return jsonify(rows)
 
 # ==============================
-# 📡 SCAN API (MAIN LOGIC)
+# 📡 SCAN API
 # ==============================
 
 @app.route('/scan', methods=['POST'])
@@ -85,15 +88,14 @@ def scan():
     data = request.get_json()
 
     if not data or "uid" not in data:
-        return jsonify({"status": "error", "message": "Invalid data"})
+        return jsonify({"status": "error"})
 
     uid = data["uid"]
-    current_time = datetime.now()
+    now = datetime.now()
 
     conn = get_db()
     cursor = conn.cursor()
 
-    # 🔍 CHECK LAST ENTRY
     cursor.execute("""
         SELECT time, date FROM attendance
         WHERE uid = ?
@@ -104,22 +106,14 @@ def scan():
 
     if result:
         last_time, last_date = result
+        last_dt = datetime.strptime(f"{last_date} {last_time}", "%Y-%m-%d %H:%M:%S")
 
-        last_dt = datetime.strptime(
-            f"{last_date} {last_time}",
-            "%Y-%m-%d %H:%M:%S"
-        )
+        diff = (now - last_dt).total_seconds() / 60
 
-        diff_minutes = (current_time - last_dt).total_seconds() / 60
-
-        if diff_minutes < CLASS_DURATION:
+        if diff < CLASS_DURATION:
             conn.close()
-            return jsonify({
-                "status": "duplicate",
-                "message": "Already marked"
-            })
+            return jsonify({"status": "duplicate"})
 
-    # ✅ INSERT NEW RECORD
     name = students.get(int(uid), "Unknown")
 
     cursor.execute("""
@@ -128,17 +122,30 @@ def scan():
     """, (
         uid,
         name,
-        current_time.strftime("%H:%M:%S"),
-        current_time.strftime("%Y-%m-%d")
+        now.strftime("%H:%M:%S"),
+        now.strftime("%Y-%m-%d")
     ))
 
     conn.commit()
     conn.close()
 
-    return jsonify({
-        "status": "success",
-        "name": name
-    })
+    return jsonify({"status": "success", "name": name})
+
+# ==============================
+# 🧹 CLEAR DATA
+# ==============================
+
+@app.route('/clear')
+def clear():
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM attendance")
+
+    conn.commit()
+    conn.close()
+
+    return redirect('/')
 
 # ==============================
 # 📥 EXPORT CSV
@@ -155,17 +162,16 @@ def export():
 
     def generate():
         yield "UID,Name,Time,Date\n"
-        for row in rows:
-            yield f"{row[0]},{row[1]},{row[2]},{row[3]}\n"
+        for r in rows:
+            yield f"{r[0]},{r[1]},{r[2]},{r[3]}\n"
 
-    return Response(
-        generate(),
+    return Response(generate(),
         mimetype='text/csv',
         headers={"Content-Disposition": "attachment;filename=attendance.csv"}
     )
 
 # ==============================
-# ▶️ RUN SERVER
+# ▶️ RUN
 # ==============================
 
 if __name__ == '__main__':
