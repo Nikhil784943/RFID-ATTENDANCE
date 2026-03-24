@@ -22,11 +22,12 @@ DB_NAME = "attendance.db"
 IST = pytz.timezone('Asia/Kolkata')
 
 # ==============================
-# 🗄️ DB
+# 🗄️ DB FUNCTIONS
 # ==============================
 
 def get_db():
-    return sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+    return conn
 
 def init_db():
     conn = get_db()
@@ -54,14 +55,14 @@ init_db()
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        username = request.form.get('username')
+        password = request.form.get('password')
 
         if username == "admin" and password == "1234":
             session['user'] = username
             return redirect('/')
         else:
-            return "Invalid Login"
+            return render_template("login.html")
 
     return render_template("login.html")
 
@@ -71,7 +72,7 @@ def login():
 
 @app.route('/logout')
 def logout():
-    session.pop('user', None)
+    session.clear()
     return redirect('/login')
 
 # ==============================
@@ -85,13 +86,13 @@ def home():
     return render_template("index.html")
 
 # ==============================
-# 📊 GET TODAY DATA
+# 📊 GET DATA (TODAY)
 # ==============================
 
 @app.route('/data')
 def get_data():
     if 'user' not in session:
-        return redirect('/login')
+        return jsonify([])   # ⚠️ important (avoid redirect loop)
 
     today = datetime.now(IST).strftime("%Y-%m-%d")
 
@@ -111,7 +112,7 @@ def get_data():
     return jsonify(rows)
 
 # ==============================
-# 📡 SCAN API
+# 📡 SCAN API (PICO)
 # ==============================
 
 @app.route('/scan', methods=['POST'])
@@ -170,7 +171,7 @@ def scan():
     return jsonify({"status": "success", "name": name})
 
 # ==============================
-# 🧹 CLEAR DATA (MARK AGAIN)
+# 🧹 CLEAR DATA
 # ==============================
 
 @app.route('/clear')
@@ -189,7 +190,7 @@ def clear():
     return redirect('/')
 
 # ==============================
-# 📥 EXPORT
+# 📥 EXPORT CSV
 # ==============================
 
 @app.route('/export')
